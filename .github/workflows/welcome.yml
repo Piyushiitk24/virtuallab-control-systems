@@ -1,0 +1,67 @@
+name: 🎉 Welcome New Contributors
+
+on:
+  issues:
+    types: [opened]
+  pull_requests:
+    types: [opened]
+
+jobs:
+  welcome:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🎊 Welcome New Issue
+        if: github.event_name == 'issues'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🎉 **Thank you for opening your first issue in VirtualLab!**
+              
+              Welcome to the VirtualLab Control Systems community! 🚀
+              
+              We're excited to hear your thoughts and help improve engineering education worldwide. Here's what happens next:
+              
+              📋 **Our team will review your issue and respond within 24-48 hours**
+              🔧 **If it's a bug, we'll work on reproducing and fixing it**
+              💡 **If it's a feature request, we'll discuss implementation details**
+              ❓ **If it's a question, we'll provide comprehensive guidance**
+              
+              **🎓 New to VirtualLab?** Check out our [Quick Start Guide](https://github.com/Piyushiitk24/virtuallab-control-systems#-quick-start-guide)
+              
+              **💬 Want to chat?** Join our [Discussions](https://github.com/Piyushiitk24/virtuallab-control-systems/discussions)
+              
+              **⭐ Love VirtualLab?** Consider starring this repository to help others discover it!
+              
+              Thanks for helping make control systems education better for everyone! 🌟`
+            })
+
+      - name: 🎊 Welcome New Pull Request  
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🎉 **Thank you for your first contribution to VirtualLab!**
+              
+              Welcome to our contributor community! 🚀 Your contribution helps advance engineering education worldwide.
+              
+              📋 **What happens next:**
+              - Our team will review your changes within 24-48 hours
+              - We may suggest improvements or ask questions
+              - Once approved, your code will become part of VirtualLab!
+              
+              **🔍 Contribution Guidelines:** Make sure you've followed our [Contributing Guide](https://github.com/Piyushiitk24/virtuallab-control-systems/blob/main/CONTRIBUTING.md)
+              
+              **🧪 Testing:** Have you tested your changes with real hardware?
+              
+              **📖 Documentation:** Does your change require documentation updates?
+              
+              Thanks for being part of the VirtualLab revolution! 🌟⚡`
+            })
