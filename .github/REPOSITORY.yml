@@ -1,0 +1,54 @@
+name: 🚀 VirtualLab Control Systems
+description: Professional-grade web interface for hardware control system experiments and engineering education. Real-time motor control, interactive learning modules, and live data visualization for universities and training programs.
+
+topics:
+  - control-systems
+  - engineering-education  
+  - arduino
+  - react
+  - motor-control
+  - hardware-control
+  - web-serial-api
+  - educational-technology
+  - interactive-learning
+  - real-time-visualization
+  - pid-control
+  - mechatronics
+  - robotics-education
+  - university-lab
+  - professional-training
+  - oscilloscope
+  - data-acquisition
+  - laboratory-equipment
+  - stem-education
+  - hands-on-learning
+
+homepage: https://github.com/[username]/virtuallab-control-systems
+support_url: https://github.com/[username]/virtuallab-control-systems/issues
+documentation_url: https://github.com/[username]/virtuallab-control-systems/blob/main/README.md
+
+# Repository settings for maximum discoverability
+visibility: public
+has_issues: true
+has_projects: true
+has_wiki: true
+has_pages: false
+has_downloads: true
+allow_squash_merge: true
+allow_merge_commit: true
+allow_rebase_merge: true
+delete_branch_on_merge: true
+
+# Repository features
+features:
+  - issues
+  - projects
+  - wiki
+  - discussions
+  - security_advisories
+  - sponsorships
+
+# Advanced settings
+default_branch: main
+allow_auto_merge: false
+allow_update_branch: true
