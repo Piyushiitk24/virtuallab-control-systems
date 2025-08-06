@@ -35,7 +35,7 @@ Thank you for your interest in contributing to VirtualLab! This project aims to 
 1. **Fork the Repository**
    ```bash
    # Click "Fork" on GitHub, then clone your fork
-   git clone https://github.com/YOUR_USERNAME/virtuallab-control-systems.git
+   git clone https://github.com/Piyushiitk24/virtuallab-control-systems.git
    cd virtuallab-control-systems
    ```
 
@@ -55,7 +55,7 @@ Thank you for your interest in contributing to VirtualLab! This project aims to 
 
 1. **Create a Feature Branch**
    ```bash
-   git checkout -b feature/your-feature-name
+   git checkout -b feature/descriptive-feature-name
    ```
 
 2. **Make Your Changes**
@@ -67,7 +67,7 @@ Thank you for your interest in contributing to VirtualLab! This project aims to 
    ```bash
    git add .
    git commit -m "Add: Brief description of your changes"
-   git push origin feature/your-feature-name
+   git push origin feature/descriptive-feature-name
    ```
 
 4. **Create Pull Request**
@@ -167,7 +167,7 @@ Significant contributors may be invited to join the core maintainer team.
 - **Questions**: Open a GitHub Discussion
 - **Complex Issues**: Create a detailed GitHub Issue
 - **Real-time Chat**: [Discord/Slack link when available]
-- **Email**: [maintainer-email@domain.com]
+- **Email**: piyushiitk24@gmail.com
 
 ## 📜 **Code of Conduct**
 

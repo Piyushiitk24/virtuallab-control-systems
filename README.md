@@ -2,8 +2,19 @@
 
 > **Professional-grade web interface for hardware control system experiments and engineering education**
 
-[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://choosealicense.com/licenses/mit/)
-[![React](https://img.shields.io/badge/React-18.2.0-blue.svg)](https://reactjs.org/)
+[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://choosealicense.com/licenses/## ## ---
+
+**⚡ Transform your control systems education today with VirtualLab!** & Community**
+
+- **🐛 Issues**: [GitHub Issues](https://github.com/Piyushiitk24/virtuallab-control-systems/issues)
+- **💬 Discussions**: [GitHub Discussions](https://github.com/Piyushiitk24/virtuallab-control-systems/discussions)  
+- **📧 Contact**: piyushiitk24@gmail.com
+- **🔗 Website**: [https://github.com/Piyushiitk24/virtuallab-control-systems]pport & Community**
+
+- **🐛 Issues**: [GitHub Issues](https://github.com/Piyushiitk24/virtuallab-control-systems/issues)
+- **💬 Discussions**: [GitHub Discussions](https://github.com/Piyushiitk24/virtuallab-control-systems/discussions)  
+- **📧 Contact**: piyushiitk24@gmail.com
+- **🔗 Website**: [https://github.com/Piyushiitk24/virtuallab-control-systems][![React](https://img.shields.io/badge/React-18.2.0-blue.svg)](https://reactjs.org/)
 [![Arduino](https://img.shields.io/badge/Arduino-Compatible-red.svg)](https://www.arduino.cc/)
 [![Web Serial API](https://img.shields.io/badge/Web%20Serial%20API-Supported-orange.svg)](https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API)
 
@@ -100,7 +111,7 @@ Pin 9 → ENA    # PWM Speed Control
 
 ### **2. Software Installation** (3 minutes)
 ```bash
-git clone https://github.com/[username]/virtuallab-control-systems
+git clone https://github.com/Piyushiitk24/virtuallab-control-systems
 cd virtuallab-control-systems/frontend
 npm install
 npm start
