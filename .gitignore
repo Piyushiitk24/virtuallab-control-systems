@@ -66,6 +66,12 @@ cleanup.sh
 deploy.sh
 fix_readme.sh
 final_cleanup.sh
+deploy_clean.sh
+
+# Redundant documentation (consolidated into main README)
+HARDWARE.md
+SETUP.md  
+TESTING_GUIDE.md
 
 # Cache directories
 .cache/

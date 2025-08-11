@@ -169,6 +169,24 @@ graph TB
 
 </div>
 
+### **Prerequisites**
+- Google Chrome 89+ (Web Serial API support)
+- Arduino IDE 1.8.x or 2.x
+- Node.js 16+ and npm
+- Git
+
+### **📦 Hardware Parts List**
+
+| Component | Specification | Est. Cost | Purpose |
+|-----------|---------------|-----------|---------|
+| **Arduino Mega 2560** | ATmega2560, 54 I/O pins | $25-35 | Main microcontroller |
+| **L298N Motor Driver** | Dual H-Bridge, 2A per channel | $8-12 | Safe motor control |
+| **DC Geared Motor** | 12V, 600RPM, 4-15kg⋅cm | $15-25 | Primary actuator |
+| **Power Supply** | 12V, 2A minimum | $12-18 | System power |
+| **Jumper Wires** | Male-to-Male, 20cm | $5-8 | Connections |
+
+**💰 Total Cost: ~$65-100**
+
 <table>
 <tr>
 <td width="33%">
@@ -176,14 +194,24 @@ graph TB
 ### 1️⃣ **Hardware Setup** 
 **(5 minutes)**
 
+**Wiring Connections:**
 ```bash
-Arduino Mega 2560 → L298N Driver
+Arduino Mega → L298N:
 Pin 8 → IN1  # Direction 1  
 Pin 7 → IN2  # Direction 2
 Pin 9 → ENA  # PWM Speed
+GND   → GND  # Common ground
+
+L298N → Motor:
+OUT1  → Motor Terminal 1
+OUT2  → Motor Terminal 2
+
+Power:
+12V Supply → L298N VCC & +12V
+Arduino GND → L298N GND
 ```
 
-💡 **Pro Tip**: Use color-coded wires!
+💡 **Safety**: Remove L298N jumper, use color-coded wires!
 
 </td>
 <td width="33%">
@@ -192,9 +220,18 @@ Pin 9 → ENA  # PWM Speed
 **(3 minutes)**
 
 ```bash
+# Clone repository
 git clone https://github.com/Piyushiitk24/virtuallab-control-systems
+
+# Install dependencies
 cd virtuallab-control-systems/frontend
 npm install
+
+# Upload Arduino sketch
+# Open arduino/MotorTest/MotorTest.ino in Arduino IDE
+# Select Arduino Mega 2560, upload
+
+# Start web interface
 npm start
 ```
 
@@ -203,24 +240,77 @@ npm start
 </td>
 <td width="33%">
 
-### 3️⃣ **Start Learning**
+### 3️⃣ **Quick Test** 
 **(2 minutes)**
 
-1. Upload Arduino sketch
-2. Connect via web interface  
-3. Control motor in real-time!
+**Web Interface Testing:**
+1. **Connect Hardware**: Click "Connect to Arduino"
+2. **Pin Check**: Verify connections show ✅
+3. **Motor Test**: Use PWM sliders (start at 50%)
+4. **Direction**: Test both forward/reverse
+5. **Safety**: Emergency stop works
 
-🎉 **You're ready to experiment!**
+**Troubleshooting:**
+- **No Connection**: Check USB cable, select correct port
+- **Motor Not Moving**: Verify power supply, wiring
+- **Browser Issues**: Use Chrome/Edge with HTTPS/localhost
+
+🎉 **Success**: Motor responds to web controls!
 
 </td>
 </tr>
 </table>
 
-<div align="center">
+---
 
-**🎬 [Watch Setup Video Tutorial →](#) | 📋 [Download Hardware Checklist →](HARDWARE.md) | 🔧 [Troubleshooting Guide →](TESTING_GUIDE.md)**
+## 🔧 **Complete Setup & Troubleshooting Guide**
 
-</div>
+### **🔌 Detailed Hardware Assembly**
+
+#### **Step-by-Step Wiring**
+```
+Arduino Mega 2560 Connections:
+├── Pin 8  → L298N IN1  (Motor Direction 1)
+├── Pin 7  → L298N IN2  (Motor Direction 2)  
+├── Pin 9  → L298N ENA  (PWM Speed Control)
+├── 5V     → L298N VCC  (Logic Power)
+├── GND    → L298N GND  (Common Ground)
+
+L298N Motor Driver:
+├── OUT1   → DC Motor Terminal 1
+├── OUT2   → DC Motor Terminal 2
+├── +12V   → 12V Power Supply (+)
+├── GND    → 12V Power Supply (-) & Arduino GND
+
+Safety Notes:
+⚠️  Remove L298N 5V-VCC jumper (prevents USB damage)
+⚠️  Connect 12V power AFTER programming Arduino
+⚠️  Use heat sink on L298N for continuous operation
+```
+
+#### **Motor Specifications (Tested Compatible)**
+- **Voltage**: 6-18V DC (nominal: 12V)
+- **Speed**: 600RPM at 12V  
+- **Torque**: 4-15 kg⋅cm
+- **Current**: 100mA (no load) to 1.9A (full load)
+- **Shaft**: 6mm diameter, 29-30mm length
+
+### **🚨 Common Issues & Solutions**
+
+| Problem | Cause | Solution |
+|---------|-------|----------|
+| **Arduino not detected** | Driver issues, wrong port | Install CH340/FTDI drivers, check Device Manager |
+| **Web Serial not available** | Unsupported browser | Use Chrome/Edge, enable experimental features |
+| **Motor doesn't move** | Power supply, wiring | Check 12V supply, verify L298N connections |
+| **Erratic motor behavior** | Insufficient power, interference | Use 2A+ supply, add capacitors, check grounds |
+| **Serial connection fails** | Port conflicts, permissions | Close Arduino IDE, restart browser, check permissions |
+| **Interface not loading** | Node.js issues, dependencies | Clear npm cache, reinstall dependencies |
+
+### **⚡ Performance Tips**
+- **Power Supply**: Use 12V 3A for stable operation
+- **Heat Management**: Add heat sink to L298N  
+- **Signal Quality**: Keep wires short, use twisted pairs
+- **Browser**: Use Chrome/Edge, close other tabs for best performance
 
 ---
 
@@ -304,7 +394,7 @@ Multi-user experiments and sharing
 
 </div>
 
-**🛒 Complete shopping list with supplier links in [HARDWARE.md](HARDWARE.md)**
+**🛒 Complete parts list and specifications included above**
 
 ---
 
@@ -437,18 +527,18 @@ Multi-user experiments and sharing
 
 <div align="center">
 
-### **📖 Complete Learning Resources**
+### **📖 Complete Documentation (All-in-One)**
 
 </div>
 
-| Document | Purpose | Audience | Time to Read |
-|----------|---------|----------|--------------|
-| **[🚀 SETUP.md](SETUP.md)** | Complete installation guide | Beginners | 15 min |
-| **[🧪 TESTING_GUIDE.md](TESTING_GUIDE.md)** | Step-by-step testing | All users | 10 min |
-| **[🔧 HARDWARE.md](HARDWARE.md)** | Hardware specifications | Engineers | 20 min |
-| **[🤝 CONTRIBUTING.md](CONTRIBUTING.md)** | Development guidelines | Developers | 25 min |
-| **[📡 API.md](API.md)** | Serial communication protocol | Advanced users | 30 min |
-| **[🔍 TROUBLESHOOTING.md](TROUBLESHOOTING.md)** | Common issues & solutions | Support | 15 min |
+All setup, hardware, and troubleshooting information is included in this README! Additional resources:
+
+| Resource | Purpose | Time to Read |
+|----------|---------|--------------|
+| **[🤝 CONTRIBUTING.md](CONTRIBUTING.md)** | Development guidelines | 25 min |
+| **[🔒 SECURITY.md](SECURITY.md)** | Security policy | 15 min |
+| **[� CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)** | Community standards | 10 min |
+| **[� LICENSE](LICENSE)** | MIT License | 5 min |
 
 ### **🎥 Video Resources**
 

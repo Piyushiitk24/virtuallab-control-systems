@@ -1,6 +1,10 @@
 ---
 name: Question
-about: Ask a question about VirtualLab
+about:**What I've Tried**
+What documentation have you already checked?
+- [ ] README.md (includes setup, hardware, troubleshooting)
+- [ ] CONTRIBUTING.md  
+- [ ] Searched existing issuesquestion about VirtualLab
 title: '[QUESTION] '
 labels: question
 assignees: ''

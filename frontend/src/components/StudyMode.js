@@ -258,7 +258,7 @@ void processCommand(String command) {
         </div>
 
         <div className="section">
-          <h3>� System Components</h3>
+          <h3>⚙️ System Components</h3>
           <div className="pin-diagram">
 {`Physical Setup:
 ┌─────────────────────────────────┐
@@ -933,7 +933,7 @@ Where: m=0.1kg, g=9.81m/s², l=0.3m, I=0.009kg⋅m²`}
       return (
         <div className="study-content">
           <div className="section">
-            <h3>� Learning Module: {subModules[activeSubModule].title}</h3>
+            <h3>📘 Learning Module: {subModules[activeSubModule].title}</h3>
             <div style={{
               background: '#f8f9fa',
               padding: '2rem',
@@ -968,7 +968,7 @@ Where: m=0.1kg, g=9.81m/s², l=0.3m, I=0.009kg⋅m²`}
     return (
       <div className="study-content">
         <div className="section">
-          <h3>�🔌 Board Connection</h3>
+          <h3>🔌 Board Connection</h3>
           <div className="connection-panel">
             <div className="connection-status">
               <span 

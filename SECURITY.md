@@ -88,8 +88,8 @@ Security updates will be:
 
 ## 📚 Security Resources
 
-- [Hardware Safety Guide](HARDWARE.md#safety)
-- [Setup Security Checklist](SETUP.md#security)
+- [Hardware Safety Guide - See main README.md](README.md#-complete-setup--troubleshooting-guide)
+- [Setup Security Checklist - See main README.md](README.md#-quick-start-guide)  
 - [Browser Security Best Practices](https://web.dev/browser-security/)
 - [Web Serial API Security](https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API#security_considerations)
 
