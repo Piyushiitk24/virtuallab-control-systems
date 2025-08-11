@@ -206,6 +206,33 @@ class SerialHandler {
   async getStatus() {
     await this.sendCommand('GET_STATUS');
   }
+
+  // Stepper Motor Commands
+  async stepperMove(steps) {
+    await this.sendCommand(`STEPPER_MOVE_${steps}`);
+  }
+
+  async stepperSpeed(speed) {
+    const clampedSpeed = Math.max(50, Math.min(2000, speed));
+    await this.sendCommand(`STEPPER_SPEED_${clampedSpeed}`);
+  }
+
+  async stepperStop() {
+    await this.sendCommand('STEPPER_STOP');
+  }
+
+  async stepperHome() {
+    await this.sendCommand('STEPPER_HOME');
+  }
+
+  // Rotary Encoder Commands
+  async encoderReset() {
+    await this.sendCommand('ENCODER_RESET');
+  }
+
+  async encoderCalibrate() {
+    await this.sendCommand('ENCODER_CALIBRATE');
+  }
 }
 
 // Create a singleton instance
