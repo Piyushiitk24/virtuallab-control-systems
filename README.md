@@ -13,7 +13,7 @@
 
 **⭐ Transform theoretical control systems knowledge into hands-on laboratory experience through real-time hardware interaction ⭐**
 
-[� Quick Start](#-quick-start-guide) • [📚 Documentation](#-documentation) • [🔧 Hardware](#-supported-hardware) • [🤝 Contributing](#-contributing) • [🌟 Star this repo](#-star-this-repository)
+[⚡ Quick Start](#-quick-start-guide) • [📚 Documentation](#-documentation--resources) • [🔧 Hardware](#-hardware-compatibility) • [🤝 Contributing](#-contributing--community) • [🌟 Star this repo](#-star-this-repository)
 
 </div>
 
@@ -32,7 +32,7 @@
 </td>
 <td width="50%">
 
-### � **Real-time Motor Control**
+### ⚙️ **Real-time Motor Control**
 ![Motor Control](Screenshots/Motor_Control_UI.png)
 *Professional control panel with live RPM feedback and PWM precision*
 
@@ -41,7 +41,7 @@
 <tr>
 <td width="50%">
 
-### � **Interactive Learning Modules**
+### 📚 **Interactive Learning Modules**
 ![Study Mode](Screenshots/study_mode.png)
 *Split-panel design: Theory meets practice in real-time*
 
@@ -106,7 +106,7 @@
 
 <div align="center">
 
-### � **For Industry & Research**
+### 💼 **For Industry & Research**
 </div>
 
 | Feature | Description | Impact |
@@ -304,7 +304,7 @@ Multi-user experiments and sharing
 
 </div>
 
-**� Complete shopping list with supplier links in [HARDWARE.md](HARDWARE.md)**
+**🛒 Complete shopping list with supplier links in [HARDWARE.md](HARDWARE.md)**
 
 ---
 
@@ -355,7 +355,7 @@ Multi-user experiments and sharing
 | **🚀 Phase 1: Foundation** | ✅ **Complete** | Basic motor control, Educational UI, Real-time plotting | **✅ SHIPPED** |
 | **⚡ Phase 2: Advanced Control** | 🚧 **Q3 2025** | PID tuning interface, System ID tools, Multi-motor control | **🔄 IN PROGRESS** |
 | **🌐 Phase 3: Cloud Integration** | 📋 **Q4 2025** | Remote labs, Data analytics, Team collaboration | **📋 PLANNED** |
-| **🤖 Phase 4: AI Enhancement** | � **2026** | Intelligent tutoring, Auto-tuning, Predictive maintenance | **🔮 RESEARCH** |
+| **🤖 Phase 4: AI Enhancement** | 📅 **2026** | Intelligent tutoring, Auto-tuning, Predictive maintenance | **🔮 RESEARCH** |
 
 ### **🎉 Coming Soon**
 
@@ -622,6 +622,25 @@ Latest updates & resources
 [![GitHub discussions](https://img.shields.io/github/discussions/Piyushiitk24/virtuallab-control-systems?style=social)](https://github.com/Piyushiitk24/virtuallab-control-systems/discussions)
 
 </div>
+
+---
+
+## 🧑‍💻 Local Development
+
+- Requirements: Node.js 18+, npm 9+, Chrome/Edge/Opera for Web Serial
+- Install and run:
+    - cd virtuallab-control-systems/frontend
+    - npm install
+    - npm start
+- Build production bundle:
+    - npm run build
+- Lint/format (if configured):
+    - npm run lint
+    - npm run format
+
+Notes:
+- Web Serial requires a supported browser and HTTPS or localhost.
+- If the serial connection fails, check browser permissions and cable.
 
 ---
 
