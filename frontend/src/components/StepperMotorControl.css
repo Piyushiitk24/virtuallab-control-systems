@@ -1,0 +1,478 @@
+.stepper-motor-control {
+  padding: 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+  color: white;
+}
+
+.control-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 20px;
+  border-radius: 10px;
+  backdrop-filter: blur(10px);
+}
+
+.control-header h2 {
+  margin: 0;
+  font-size: 2rem;
+  background: linear-gradient(45deg, #FFD700, #FFA500);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.motor-status {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+
+.status-indicator {
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+.status-indicator.running {
+  background: linear-gradient(45deg, #4CAF50, #8BC34A);
+  animation: pulse 2s infinite;
+}
+
+.status-indicator.stopped {
+  background: linear-gradient(45deg, #f44336, #FF5722);
+}
+
+.position-display {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 10px 15px;
+  border-radius: 5px;
+  font-family: 'Courier New', monospace;
+}
+
+.control-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+  margin-bottom: 30px;
+}
+
+/* Motor Visual */
+.motor-visual {
+  background: rgba(0, 0, 0, 0.2);
+  padding: 30px;
+  border-radius: 15px;
+  backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 30px;
+}
+
+.stepper-motor {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #333, #666);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+}
+
+.rotor {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #FFD700, #FFA500);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+}
+
+.rotor-indicator {
+  width: 4px;
+  height: 50px;
+  background: #fff;
+  position: absolute;
+  top: 10px;
+  border-radius: 2px;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+.stator {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+}
+
+.coil {
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #666;
+  border: 3px solid #999;
+  transition: all 0.2s ease;
+}
+
+.coil[data-active="1"] {
+  background: #FF4444;
+  border-color: #FF6666;
+  box-shadow: 0 0 15px #FF4444;
+}
+
+.coil-a { top: -15px; left: 50%; transform: translateX(-50%); }
+.coil-b { right: -15px; top: 50%; transform: translateY(-50%); }
+.coil-c { bottom: -15px; left: 50%; transform: translateX(-50%); }
+.coil-d { left: -15px; top: 50%; transform: translateY(-50%); }
+
+.motor-info {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  width: 100%;
+}
+
+.info-group {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 10px;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.info-group label {
+  font-weight: bold;
+  color: #FFD700;
+}
+
+.info-group span {
+  font-family: 'Courier New', monospace;
+  color: #fff;
+}
+
+/* Control Panels */
+.control-panels {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.control-panel {
+  background: rgba(0, 0, 0, 0.2);
+  padding: 20px;
+  border-radius: 10px;
+  backdrop-filter: blur(10px);
+}
+
+.control-panel h3 {
+  margin: 0 0 15px 0;
+  color: #FFD700;
+  font-size: 1.2rem;
+}
+
+.mode-selector {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.mode-selector button {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.mode-selector button.active {
+  background: linear-gradient(45deg, #4CAF50, #8BC34A);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+}
+
+.control-group {
+  margin-bottom: 15px;
+}
+
+.control-group label {
+  display: block;
+  margin-bottom: 5px;
+  color: #FFD700;
+  font-weight: bold;
+}
+
+.control-group input, .control-group select {
+  width: 100%;
+  padding: 8px;
+  border: none;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  font-size: 1rem;
+}
+
+.control-group input[type="range"] {
+  width: calc(100% - 50px);
+  margin-right: 10px;
+}
+
+.control-group input[type="range"] + span {
+  display: inline-block;
+  width: 40px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 5px;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+}
+
+.button-group {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.button-group button {
+  flex: 1;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 5px;
+  background: linear-gradient(45deg, #2196F3, #21CBF3);
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 80px;
+}
+
+.button-group button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(33, 150, 243, 0.3);
+}
+
+.button-group button.emergency {
+  background: linear-gradient(45deg, #f44336, #FF5722);
+}
+
+.button-group button.emergency:hover {
+  box-shadow: 0 4px 15px rgba(244, 67, 54, 0.3);
+}
+
+.button-group button:disabled {
+  background: #666;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Jog Controls */
+.jog-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.jog-row {
+  display: flex;
+  gap: 5px;
+  justify-content: center;
+}
+
+.jog-row button {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 5px;
+  background: linear-gradient(45deg, #9C27B0, #E91E63);
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 60px;
+}
+
+.jog-row button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(156, 39, 176, 0.3);
+}
+
+/* Sequence Controls */
+.sequence-builder {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 15px;
+}
+
+.sequence-list {
+  max-height: 150px;
+  overflow-y: auto;
+  margin-bottom: 15px;
+}
+
+.sequence-list h4 {
+  margin: 0 0 10px 0;
+  color: #FFD700;
+}
+
+.sequence-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  margin-bottom: 5px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 5px;
+  transition: all 0.3s ease;
+}
+
+.sequence-item.active {
+  background: linear-gradient(45deg, #4CAF50, #8BC34A);
+  animation: pulse 2s infinite;
+}
+
+.sequence-item button {
+  background: #f44336;
+  border: none;
+  border-radius: 50%;
+  width: 25px;
+  height: 25px;
+  color: white;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+/* Step Pattern Visualization */
+.step-pattern-section {
+  background: rgba(0, 0, 0, 0.2);
+  padding: 20px;
+  border-radius: 10px;
+  backdrop-filter: blur(10px);
+}
+
+.step-pattern-section h3 {
+  margin: 0 0 20px 0;
+  color: #FFD700;
+  text-align: center;
+}
+
+.pattern-display {
+  display: flex;
+  justify-content: center;
+}
+
+.coil-states {
+  display: flex;
+  gap: 20px;
+}
+
+.coil-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.coil-header {
+  font-weight: bold;
+  font-size: 1.2rem;
+  color: #FFD700;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 8px 15px;
+  border-radius: 5px;
+}
+
+.pattern-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.pattern-step {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  border: 2px solid #666;
+  transition: all 0.3s ease;
+}
+
+.pattern-step.active {
+  background: #FF4444;
+  border-color: #FF6666;
+  color: white;
+  box-shadow: 0 0 10px #FF4444;
+}
+
+.pattern-step.inactive {
+  background: rgba(255, 255, 255, 0.1);
+  color: #999;
+}
+
+/* Animations */
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); }
+  70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .control-layout {
+    grid-template-columns: 1fr;
+  }
+  
+  .motor-info {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .control-header {
+    flex-direction: column;
+    gap: 15px;
+    text-align: center;
+  }
+  
+  .motor-status {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .stepper-motor {
+    width: 150px;
+    height: 150px;
+  }
+  
+  .rotor {
+    width: 90px;
+    height: 90px;
+  }
+  
+  .button-group {
+    flex-direction: column;
+  }
+  
+  .jog-row {
+    flex-wrap: wrap;
+  }
+  
+  .mode-selector {
+    flex-direction: column;
+  }
+}

@@ -3,6 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import serialHandler from '../utils/SerialHandler';
+import SystemDiagram from './SystemDiagram';
+import RealTimePlot from './RealTimePlot';
+import StepperMotorControl from './StepperMotorControl';
+import RotaryEncoder from './RotaryEncoder';
 
 const StudyMode = () => {
   const { module } = useParams();
@@ -28,6 +32,30 @@ const StudyMode = () => {
   const [encoderRPM, setEncoderRPM] = useState(0);
   const [lastEncoderTime, setLastEncoderTime] = useState(Date.now());
   const [encoderDirection, setEncoderDirection] = useState('STOPPED');
+
+  // Simulation Comparison State
+  const [referenceSpeed, setReferenceSpeed] = useState(300); // RPM
+  const [simulatedSpeed, setSimulatedSpeed] = useState(0);
+  const [actualSpeed, setActualSpeed] = useState(0);
+  const [comparisonActive, setComparisonActive] = useState(false);
+  const [plotData, setPlotData] = useState({
+    time: [],
+    reference: [],
+    simulated: [],
+    actual: []
+  });
+  const [simulationParams, setSimulationParams] = useState({
+    kp: 1.0,
+    ki: 0.1,
+    kd: 0.05,
+    motorInertia: 0.01,
+    friction: 0.1
+  });
+  const [controllerState, setControllerState] = useState({
+    errorSum: 0,
+    lastError: 0,
+    lastTime: Date.now()
+  });
 
   useEffect(() => {
     // Set up serial response handler
@@ -66,6 +94,22 @@ const StudyMode = () => {
           } else {
             setEncoderDirection('COUNTER-CLOCKWISE');
           }
+        }
+      }
+      
+      // Handle closed-loop status responses
+      if (response.includes('STATUS:')) {
+        const parts = response.split(':')[1].split(',');
+        if (parts.length >= 6) {
+          const currentRPM = parseFloat(parts[0]);
+          const targetRPM = parseFloat(parts[1]);
+          const motorPWM = parseInt(parts[2]);
+          const encoderCount = parseInt(parts[3]);
+          const closedLoopActive = parseInt(parts[4]) === 1;
+          const pidOutput = parseFloat(parts[5]);
+          
+          setActualSpeed(Math.abs(currentRPM)); // Use absolute value for speed
+          // Update other states as needed for the comparison module
         }
       }
     });
@@ -181,6 +225,120 @@ const StudyMode = () => {
         await serialHandler.sendCommand('ENCODER_CALIBRATE');
       } catch (error) {
         console.error('Failed to calibrate encoder:', error);
+      }
+    }
+  };
+
+  // Simulation Comparison Functions
+  const startSimulationComparison = async () => {
+    if (isConnected) {
+      try {
+        setComparisonActive(true);
+        // Reset plot data
+        setPlotData({
+          time: [],
+          reference: [],
+          simulated: [],
+          actual: []
+        });
+        // Start hardware closed-loop
+        await serialHandler.startClosedLoop();
+        // Set target speed on hardware
+        await serialHandler.setTargetSpeed(referenceSpeed);
+        // Start simulation loop
+        startSimulationLoop();
+      } catch (error) {
+        console.error('Failed to start comparison:', error);
+      }
+    }
+  };
+
+  const stopSimulationComparison = async () => {
+    if (isConnected) {
+      try {
+        setComparisonActive(false);
+        // Stop hardware closed-loop
+        await serialHandler.stopClosedLoop();
+        stopSimulationLoop();
+      } catch (error) {
+        console.error('Failed to stop comparison:', error);
+      }
+    }
+  };
+
+  const startSimulationLoop = () => {
+    const interval = setInterval(() => {
+      if (!comparisonActive) {
+        clearInterval(interval);
+        return;
+      }
+      updateSimulation();
+    }, 100); // 10Hz update rate
+  };
+
+  const stopSimulationLoop = () => {
+    // Intervals are cleared by the condition in startSimulationLoop
+  };
+
+  const updateSimulation = () => {
+    const currentTime = Date.now();
+    const deltaTime = (currentTime - controllerState.lastTime) / 1000; // Convert to seconds
+    
+    // PID Controller for simulation
+    const error = referenceSpeed - simulatedSpeed;
+    const newErrorSum = controllerState.errorSum + error * deltaTime;
+    const errorDerivative = (error - controllerState.lastError) / deltaTime;
+    
+    // PID output
+    const pidOutput = simulationParams.kp * error + 
+                     simulationParams.ki * newErrorSum + 
+                     simulationParams.kd * errorDerivative;
+    
+    // Simple motor dynamics simulation
+    const motorAcceleration = (pidOutput - simulationParams.friction * simulatedSpeed) / simulationParams.motorInertia;
+    const newSimulatedSpeed = simulatedSpeed + motorAcceleration * deltaTime;
+    
+    // Update simulation state
+    setSimulatedSpeed(Math.max(0, Math.min(600, newSimulatedSpeed))); // Clamp to motor limits
+    setControllerState({
+      errorSum: Math.max(-1000, Math.min(1000, newErrorSum)), // Prevent windup
+      lastError: error,
+      lastTime: currentTime
+    });
+    
+    // Update plot data
+    setPlotData(prevData => {
+      const timePoint = (currentTime - prevData.time[0] || currentTime) / 1000; // Relative time in seconds
+      const maxPoints = 100; // Keep last 100 points (10 seconds at 10Hz)
+      
+      return {
+        time: [...prevData.time.slice(-maxPoints + 1), timePoint],
+        reference: [...prevData.reference.slice(-maxPoints + 1), referenceSpeed],
+        simulated: [...prevData.simulated.slice(-maxPoints + 1), simulatedSpeed],
+        actual: [...prevData.actual.slice(-maxPoints + 1), actualSpeed]
+      };
+    });
+  };
+
+  const handleReferenceSpeedChange = async (newSpeed) => {
+    setReferenceSpeed(newSpeed);
+    if (comparisonActive && isConnected) {
+      try {
+        await serialHandler.setTargetSpeed(newSpeed);
+      } catch (error) {
+        console.error('Failed to update target speed:', error);
+      }
+    }
+  };
+
+  const handlePIDParameterChange = async (param, value) => {
+    const newParams = { ...simulationParams, [param]: value };
+    setSimulationParams(newParams);
+    if (comparisonActive && isConnected) {
+      try {
+        await serialHandler.setPIDParams(newParams.kp, newParams.ki, newParams.kd);
+      } catch (error) {
+        console.error('Failed to update PID parameters:', error);
       }
     }
   };
@@ -555,6 +713,292 @@ void processCommand(String command) {
   }
 }`;
 
+  const closedLoopArduinoCode = `/*
+  Closed-Loop DC Motor Control with Encoder Feedback
+  
+  This sketch implements a PID controller for precise DC motor speed control
+  using encoder feedback. It compares simulated vs actual performance.
+  
+  Hardware Setup:
+  - Arduino Mega 2560
+  - L298N Motor Driver
+  - 12V 600RPM Geared DC Motor
+  - Pro-Range 600 PPR 2-Phase Incremental Optical Rotary Encoder
+  
+  Pin Connections:
+  DC Motor Control:
+  - IN1 (Pin 8), IN2 (Pin 7), ENA (Pin 9)
+  
+  Encoder Input:
+  - Phase A (Pin 2), Phase B (Pin 3)
+  - VCC (5V), GND, Shield (GND)
+*/
+
+// Motor Control Pins
+const int IN1 = 8;
+const int IN2 = 7;
+const int ENA = 9;
+
+// Encoder Pins (Interrupt capable)
+const int ENCODER_A = 2;
+const int ENCODER_B = 3;
+
+// Encoder Variables
+volatile long encoderCount = 0;
+volatile int lastEncoded = 0;
+const int PPR = 600;
+const int TRANSITIONS_PER_REV = 2400; // 600 PPR × 4 (quadrature)
+
+// Speed Calculation Variables
+long lastEncoderCount = 0;
+unsigned long lastSpeedTime = 0;
+float currentRPM = 0;
+float targetRPM = 0;
+
+// PID Controller Variables
+float kp = 1.0;    // Proportional gain
+float ki = 0.1;    // Integral gain
+float kd = 0.05;   // Derivative gain
+
+float pidOutput = 0;
+float errorSum = 0;
+float lastError = 0;
+unsigned long lastPIDTime = 0;
+
+// Control Variables
+bool closedLoopActive = false;
+int motorPWM = 0;
+String inputString = "";
+boolean stringComplete = false;
+
+void setup() {
+  Serial.begin(9600);
+  
+  // Motor pins
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(ENA, OUTPUT);
+  
+  // Encoder pins with pull-ups
+  pinMode(ENCODER_A, INPUT_PULLUP);
+  pinMode(ENCODER_B, INPUT_PULLUP);
+  
+  // Attach encoder interrupts
+  attachInterrupt(digitalPinToInterrupt(ENCODER_A), updateEncoder, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(ENCODER_B), updateEncoder, CHANGE);
+  
+  // Initialize motor stopped
+  setMotorOutput(0);
+  
+  lastSpeedTime = millis();
+  lastPIDTime = millis();
+  
+  Serial.println("Closed-Loop DC Motor Controller Ready!");
+  Serial.println("Commands: HANDSHAKE, START_CLOSED_LOOP, STOP_CLOSED_LOOP, SET_TARGET_XXX, SET_PID_XXX_XXX_XXX");
+}
+
+void loop() {
+  unsigned long currentTime = millis();
+  
+  // Process serial commands
+  if (stringComplete) {
+    processCommand(inputString);
+    inputString = "";
+    stringComplete = false;
+  }
+  
+  // Update speed calculation every 100ms
+  if (currentTime - lastSpeedTime >= 100) {
+    calculateSpeed(currentTime);
+    lastSpeedTime = currentTime;
+  }
+  
+  // Run PID controller every 50ms
+  if (closedLoopActive && (currentTime - lastPIDTime >= 50)) {
+    runPIDController(currentTime);
+    lastPIDTime = currentTime;
+  }
+  
+  // Send status every 100ms
+  if (currentTime % 100 == 0) {
+    sendStatus();
+    delay(1); // Prevent multiple sends per millisecond
+  }
+}
+
+void serialEvent() {
+  while (Serial.available()) {
+    char inChar = (char)Serial.read();
+    if (inChar == '\\n') {
+      stringComplete = true;
+    } else {
+      inputString += inChar;
+    }
+  }
+}
+
+void updateEncoder() {
+  // Quadrature decoding
+  int MSB = digitalRead(ENCODER_A);
+  int LSB = digitalRead(ENCODER_B);
+  int encoded = (MSB << 1) | LSB;
+  int sum = (lastEncoded << 2) | encoded;
+  
+  if (sum == 0b1101 || sum == 0b0100 || sum == 0b0010 || sum == 0b1011) {
+    encoderCount++;
+  }
+  if (sum == 0b1110 || sum == 0b0111 || sum == 0b0001 || sum == 0b1000) {
+    encoderCount--;
+  }
+  
+  lastEncoded = encoded;
+}
+
+void calculateSpeed(unsigned long currentTime) {
+  long deltaCount = encoderCount - lastEncoderCount;
+  float deltaTime = (currentTime - lastSpeedTime) / 1000.0; // Convert to seconds
+  
+  if (deltaTime > 0) {
+    // Calculate RPM from encoder transitions
+    float transitionsPerSecond = deltaCount / deltaTime;
+    currentRPM = (transitionsPerSecond / TRANSITIONS_PER_REV) * 60.0;
+  }
+  
+  lastEncoderCount = encoderCount;
+}
+
+void runPIDController(unsigned long currentTime) {
+  // Calculate error
+  float error = targetRPM - currentRPM;
+  
+  // Calculate time delta
+  float deltaTime = (currentTime - lastPIDTime) / 1000.0; // Convert to seconds
+  
+  // Proportional term
+  float proportional = kp * error;
+  
+  // Integral term (with windup protection)
+  errorSum += error * deltaTime;
+  errorSum = constrain(errorSum, -1000, 1000); // Prevent windup
+  float integral = ki * errorSum;
+  
+  // Derivative term
+  float derivative = 0;
+  if (deltaTime > 0) {
+    derivative = kd * (error - lastError) / deltaTime;
+  }
+  
+  // Calculate PID output
+  pidOutput = proportional + integral + derivative;
+  
+  // Convert to motor PWM (0-255)
+  int newPWM = (int)constrain(abs(pidOutput), 0, 255);
+  
+  // Determine direction based on error
+  if (abs(error) > 5) { // Dead zone to prevent oscillation
+    if (pidOutput > 0) {
+      setMotorOutput(newPWM); // Forward
+    } else {
+      setMotorOutput(-newPWM); // Reverse
+    }
+  } else {
+    setMotorOutput(0); // Stop in dead zone
+  }
+  
+  lastError = error;
+}
+
+void setMotorOutput(int pwm) {
+  motorPWM = pwm;
+  
+  if (pwm > 0) {
+    // Forward direction
+    digitalWrite(IN1, HIGH);
+    digitalWrite(IN2, LOW);
+    analogWrite(ENA, constrain(pwm, 0, 255));
+  } else if (pwm < 0) {
+    // Reverse direction
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, HIGH);
+    analogWrite(ENA, constrain(abs(pwm), 0, 255));
+  } else {
+    // Stop
+    digitalWrite(IN1, LOW);
+    digitalWrite(IN2, LOW);
+    analogWrite(ENA, 0);
+  }
+}
+
+void sendStatus() {
+  Serial.print("STATUS:");
+  Serial.print(currentRPM, 2);
+  Serial.print(",");
+  Serial.print(targetRPM, 2);
+  Serial.print(",");
+  Serial.print(motorPWM);
+  Serial.print(",");
+  Serial.print(encoderCount);
+  Serial.print(",");
+  Serial.print(closedLoopActive ? 1 : 0);
+  Serial.print(",");
+  Serial.print(pidOutput, 2);
+  Serial.println();
+}
+
+void processCommand(String command) {
+  command.trim();
+  
+  if (command == "HANDSHAKE") {
+    Serial.println("OK");
+  }
+  else if (command == "START_CLOSED_LOOP") {
+    closedLoopActive = true;
+    errorSum = 0; // Reset integral term
+    lastError = 0;
+    Serial.println("OK: Closed-loop started");
+  }
+  else if (command == "STOP_CLOSED_LOOP") {
+    closedLoopActive = false;
+    setMotorOutput(0);
+    Serial.println("OK: Closed-loop stopped");
+  }
+  else if (command.startsWith("SET_TARGET_")) {
+    float newTarget = command.substring(11).toFloat();
+    targetRPM = constrain(newTarget, -600, 600); // Limit to motor specs
+    Serial.println("OK: Target set");
+  }
+  else if (command.startsWith("SET_PID_")) {
+    // Format: SET_PID_1.0_0.1_0.05
+    int firstUnderscore = command.indexOf('_', 8);
+    int secondUnderscore = command.indexOf('_', firstUnderscore + 1);
+    
+    if (firstUnderscore > 0 && secondUnderscore > 0) {
+      kp = command.substring(8, firstUnderscore).toFloat();
+      ki = command.substring(firstUnderscore + 1, secondUnderscore).toFloat();
+      kd = command.substring(secondUnderscore + 1).toFloat();
+      
+      // Reset PID state when parameters change
+      errorSum = 0;
+      lastError = 0;
+      
+      Serial.println("OK: PID parameters updated");
+    } else {
+      Serial.println("ERROR: Invalid PID format");
+    }
+  }
+  else if (command == "GET_STATUS") {
+    sendStatus();
+  }
+  else if (command == "RESET_ENCODER") {
+    encoderCount = 0;
+    lastEncoderCount = 0;
+    Serial.println("OK: Encoder reset");
+  }
+  else {
+    Serial.println("ERROR: Unknown command");
+  }
+}`;
+
   // Define sub-modules for the study mode
   const subModules = [
     {
@@ -580,6 +1024,12 @@ void processCommand(String command) {
       title: '📡 Rotary Encoders & Feedback',
       icon: '📊',
       description: 'Position and velocity sensing'
+    },
+    {
+      id: 'simulation-comparison',
+      title: '🔬 Simulation vs Hardware',
+      icon: '⚖️',
+      description: 'Real-time control system comparison'
     },
     {
       id: 'hardware-design',
@@ -844,362 +1294,13 @@ Note: Actual speeds may vary with load`}
   };
 
   const renderStepperMotorContent = () => {
-    return (
-      <div className="study-sidebar">
-        <div className="section">
-          <h3>🎯 Stepper Motors for Precision Control</h3>
-          <p>
-            Stepper motors provide precise angular positioning without feedback sensors. 
-            They're ideal for applications requiring accurate positioning and repeatability.
-          </p>
-          
-          <div style={{ 
-            background: '#fff3e0', 
-            padding: '1rem', 
-            borderRadius: '8px', 
-            margin: '1rem 0',
-            borderLeft: '4px solid #ff9800'
-          }}>
-            <h4>🔄 Why Stepper for Pendulum?</h4>
-            <ul>
-              <li><strong>Precise Positioning:</strong> Exact angular control</li>
-              <li><strong>No Encoder Needed:</strong> Open-loop positioning</li>
-              <li><strong>High Torque at Low Speed:</strong> Good for balancing</li>
-              <li><strong>Repeatability:</strong> Consistent positioning</li>
-              <li><strong>Digital Control:</strong> Easy microcontroller integration</li>
-            </ul>
-          </div>
-        </div>
-
-        <div className="section">
-          <h3>⚡ NEMA 17 Stepper Motor Specifications</h3>
-          <div style={{ 
-            background: '#e8f5e8', 
-            padding: '1rem', 
-            borderRadius: '8px', 
-            margin: '1rem 0',
-            borderLeft: '4px solid #4CAF50'
-          }}>
-            <h4>📋 Standard NEMA 17 Specifications</h4>
-            <ul>
-              <li><strong>Steps per Revolution:</strong> 200 (1.8° per step)</li>
-              <li><strong>Operating Voltage:</strong> 12V (typical)</li>
-              <li><strong>Current per Phase:</strong> 1.2-2.0A</li>
-              <li><strong>Holding Torque:</strong> 0.4-0.6 Nm</li>
-              <li><strong>Frame Size:</strong> 42mm × 42mm</li>
-              <li><strong>Shaft Diameter:</strong> 5mm</li>
-              <li><strong>Connection:</strong> 4-wire bipolar</li>
-            </ul>
-          </div>
-        </div>
-
-        <div className="section">
-          <h3>🔌 A4988 Driver Connections</h3>
-          <div className="pin-diagram">
-{`A4988 Driver → Arduino Mega:
-STEP → Pin 3  (Step pulse) ✓
-DIR  → Pin 4  (Direction)  ✓
-EN   → Pin 5  (Enable)     ✓
-
-A4988 → NEMA 17 Stepper:
-1A   → Coil A+ (Black)
-1B   → Coil A- (Green)
-2A   → Coil B+ (Red)
-2B   → Coil B- (Blue)
-
-Power Connections:
-VDD  → Arduino 5V
-GND  → Arduino GND
-VMOT → 12V Supply (+)
-GND  → 12V Supply (-)
-
-Microstepping (MS1, MS2, MS3):
-All GND → Full step (200 steps/rev)
-MS1=VDD → Half step (400 steps/rev)
-MS1=MS2=VDD → 1/4 step (800 steps/rev)
-All VDD → 1/16 step (3200 steps/rev)`}
-          </div>
-        </div>
-
-        <div className="section">
-          <h3>💻 Complete Arduino Stepper Code</h3>
-          <p>Upload this sketch for stepper motor control:</p>
-          <SyntaxHighlighter 
-            language="cpp" 
-            style={vscDarkPlus}
-            customStyle={{
-              fontSize: '0.85rem',
-              lineHeight: '1.4',
-              borderRadius: '8px'
-            }}
-          >
-            {stepperArduinoCode}
-          </SyntaxHighlighter>
-        </div>
-
-        <div className="section">
-          <h3>📐 Step Calculations & Conversions</h3>
-          <div className="pin-diagram">
-{`Step Resolution Calculations:
-NEMA 17: 200 steps/revolution (1.8°/step)
-
-Microstepping Options:
-Full Step:    200 steps/rev  → 1.8°/step
-Half Step:    400 steps/rev  → 0.9°/step
-Quarter Step: 800 steps/rev  → 0.45°/step
-1/16 Step:   3200 steps/rev  → 0.1125°/step
-
-Angular Conversions:
-• 90° rotation  → 50 steps (full step)
-• 180° rotation → 100 steps (full step)
-• 360° rotation → 200 steps (full step)
-• 1° rotation   → 0.56 steps (full step)
-
-Speed Calculations:
-• 1 rev/sec = 200 steps/sec
-• 60 RPM = 200 steps/sec
-• Maximum recommended: 1000-2000 steps/sec`}
-          </div>
-        </div>
-
-        <div className="section">
-          <h3>⚙️ AccelStepper Library Features</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div style={{ background: '#e3f2fd', padding: '1rem', borderRadius: '8px' }}>
-              <h4>🚀 Key Functions</h4>
-              <ul>
-                <li><code>move(steps)</code> - Relative movement</li>
-                <li><code>moveTo(position)</code> - Absolute position</li>
-                <li><code>setSpeed(speed)</code> - Constant speed</li>
-                <li><code>setMaxSpeed(speed)</code> - Maximum speed</li>
-                <li><code>setAcceleration(accel)</code> - Acceleration</li>
-              </ul>
-            </div>
-            <div style={{ background: '#f3e5f5', padding: '1rem', borderRadius: '8px' }}>
-              <h4>📊 Status Functions</h4>
-              <ul>
-                <li><code>currentPosition()</code> - Current step</li>
-                <li><code>distanceToGo()</code> - Steps remaining</li>
-                <li><code>isRunning()</code> - Movement status</li>
-                <li><code>speed()</code> - Current speed</li>
-                <li><code>stop()</code> - Decelerate to stop</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        <div className="section">
-          <h3>🎯 Control Strategies</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.5rem' }}>
-            <div style={{ background: '#fff3e0', padding: '1rem', borderRadius: '8px' }}>
-              <h4>🎮 Position Control</h4>
-              <p>Move to specific angles for pendulum positioning</p>
-              <code>stepper.moveTo(angle * 200 / 360);</code>
-            </div>
-            <div style={{ background: '#e8f5e8', padding: '1rem', borderRadius: '8px' }}>
-              <h4>🔄 Velocity Control</h4>
-              <p>Constant rotation for continuous balancing</p>
-              <code>stepper.setSpeed(stepsPerSecond);</code>
-            </div>
-            <div style={{ background: '#f3e5f5', padding: '1rem', borderRadius: '8px' }}>
-              <h4>⚡ Acceleration Control</h4>
-              <p>Smooth acceleration for natural movement</p>
-              <code>stepper.setAcceleration(1000);</code>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    return <StepperMotorControl />;
   };
 
   const renderEncodersContent = () => {
-    return (
-      <div className="study-sidebar">
-        <div className="section">
-          <h3>📡 Pro-Range 600 PPR Rotary Encoder</h3>
-          <p>
-            Your rotary encoder is a high-precision optical sensor that provides accurate position and velocity feedback 
-            for closed-loop control systems. It's essential for pendulum balancing applications.
-          </p>
-          
-          <div style={{ 
-            background: '#e8f5e8', 
-            padding: '1rem', 
-            borderRadius: '8px', 
-            margin: '1rem 0',
-            borderLeft: '4px solid #4CAF50'
-          }}>
-            <h4>🎯 Your Encoder Specifications</h4>
-            <ul>
-              <li><strong>Type:</strong> 2-Phase Incremental Optical Rotary Encoder</li>
-              <li><strong>Resolution:</strong> 600 PPR (Pulses Per Revolution)</li>
-              <li><strong>Quadrature Output:</strong> 2400 transitions per revolution</li>
-              <li><strong>Supply Voltage:</strong> 5V DC</li>
-              <li><strong>Output Type:</strong> Open collector (requires pull-up resistors)</li>
-              <li><strong>Cable Length:</strong> 1.5m standard (extendable)</li>
-              <li><strong>Industrial Grade:</strong> Built for precision applications</li>
-            </ul>
-          </div>
-        </div>
-
-        <div className="section">
-          <h3>🔌 Encoder Wiring & Pin Configuration</h3>
-          <div className="pin-diagram">
-{`Pro-Range 600 PPR → Arduino Mega:
-Phase A (White)  → Pin 2  (Interrupt 0) ✓
-Phase B (Green)  → Pin 3  (Interrupt 1) ✓
-VCC     (Red)    → 5V 
-GND     (Black)  → GND
-Shield  (Gold)   → GND (for noise immunity)
-
-Pull-up Resistors (4.7kΩ included):
-Pin 2 ──[4.7kΩ]── 5V
-Pin 3 ──[4.7kΩ]── 5V
-
-Wire Color Code:
-🔴 Red    → VCC (+5V power)
-⚫ Black  → GND (ground)
-⚪ White  → Phase A output
-🟢 Green  → Phase B output  
-🟨 Gold   → Shield (connect to GND)`}
-          </div>
-        </div>
-
-        <div className="section">
-          <h3>🔄 Quadrature Encoding Explained</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div style={{ background: '#e3f2fd', padding: '1rem', borderRadius: '8px' }}>
-              <h4>� How Quadrature Works</h4>
-              <p>Two channels (A & B) create 90° phase-shifted square waves</p>
-              <ul>
-                <li>Clockwise: A leads B</li>
-                <li>Counter-clockwise: B leads A</li>
-                <li>4 transitions per pulse</li>
-                <li>Direction detection capability</li>
-              </ul>
-            </div>
-            <div style={{ background: '#fff3e0', padding: '1rem', borderRadius: '8px' }}>
-              <h4>🎯 Resolution Enhancement</h4>
-              <p>600 PPR becomes 2400 transitions</p>
-              <ul>
-                <li>600 × 4 = 2400 counts/rev</li>
-                <li>360° ÷ 2400 = 0.15° per count</li>
-                <li>High precision positioning</li>
-                <li>Smooth velocity calculation</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        <div className="section">
-          <h3>� Complete Arduino Encoder Code</h3>
-          <p>Upload this sketch to read your 600 PPR encoder:</p>
-          <SyntaxHighlighter 
-            language="cpp" 
-            style={vscDarkPlus}
-            customStyle={{
-              fontSize: '0.85rem',
-              lineHeight: '1.4',
-              borderRadius: '8px'
-            }}
-          >
-            {encoderArduinoCode}
-          </SyntaxHighlighter>
-        </div>
-
-        <div className="section">
-          <h3>📐 Mathematical Calculations</h3>
-          <div className="pin-diagram">
-{`Resolution Calculations for 600 PPR Encoder:
-Base Resolution:     600 pulses/revolution
-Quadrature Decoding: 600 × 4 = 2400 transitions/revolution
-
-Angular Resolution:
-• Degrees per transition = 360° ÷ 2400 = 0.15°
-• Radians per transition = 2π ÷ 2400 = 0.002618 rad
-
-Position Calculation:
-angle_degrees = (encoderCount × 360.0) / 2400.0
-angle_radians = (encoderCount × 2π) / 2400.0
-
-Velocity Calculation:
-ω = Δθ / Δt (angular velocity)
-RPM = (ω × 60) / (2π) (revolutions per minute)
-
-Example Measurements:
-• 1 full rotation   → 2400 counts
-• 90° rotation      → 600 counts  
-• 45° rotation      → 300 counts
-• 1° rotation       → 6.67 counts`}
-          </div>
-        </div>
-
-        <div className="section">
-          <h3>⚡ Advanced Features & Applications</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.5rem' }}>
-            <div style={{ background: '#e8f5e8', padding: '1rem', borderRadius: '8px' }}>
-              <h4>📊 Real-time Velocity Measurement</h4>
-              <p>Calculate instantaneous angular velocity for control feedback</p>
-              <code>velocity = (deltaCount × 0.15°) / deltaTime</code>
-            </div>
-            <div style={{ background: '#fff3e0', padding: '1rem', borderRadius: '8px' }}>
-              <h4>🎯 Position Feedback</h4>
-              <p>Precise angular position for pendulum angle measurement</p>
-              <code>pendulum_angle = (encoderCount × 360.0) / 2400.0</code>
-            </div>
-            <div style={{ background: '#f3e5f5', padding: '1rem', borderRadius: '8px' }}>
-              <h4>🔄 Direction Detection</h4>
-              <p>Automatic detection of clockwise/counter-clockwise rotation</p>
-              <code>direction = (velocity &gt; 0) ? "CW" : "CCW"</code>
-            </div>
-            <div style={{ background: '#e3f2fd', padding: '1rem', borderRadius: '8px' }}>
-              <h4>📈 Acceleration Calculation</h4>
-              <p>Second derivative for advanced control algorithms</p>
-              <code>acceleration = (velocity_new - velocity_old) / deltaTime</code>
-            </div>
-          </div>
-        </div>
-
-        <div className="section">
-          <h3>🔧 Troubleshooting & Optimization</h3>
-          <div style={{ 
-            background: '#fff3cd', 
-            padding: '1rem', 
-            borderRadius: '8px', 
-            margin: '1rem 0',
-            borderLeft: '4px solid #ffc107'
-          }}>
-            <h4>⚠️ Common Issues & Solutions</h4>
-            <ul>
-              <li><strong>Missed Counts:</strong> Ensure pull-up resistors are connected (4.7kΩ)</li>
-              <li><strong>Noisy Signals:</strong> Connect shield wire to GND, use shielded cable</li>
-              <li><strong>Wrong Direction:</strong> Swap Phase A and B connections</li>
-              <li><strong>Unstable Readings:</strong> Check power supply stability (clean 5V)</li>
-              <li><strong>Interference:</strong> Keep encoder cable away from motor power wires</li>
-            </ul>
-          </div>
-          
-          <div style={{ 
-            background: '#d1ecf1', 
-            padding: '1rem', 
-            borderRadius: '8px', 
-            margin: '1rem 0',
-            borderLeft: '4px solid #17a2b8'
-          }}>
-            <h4>💡 Performance Tips</h4>
-            <ul>
-              <li><strong>Interrupt Priority:</strong> Use hardware interrupts (pins 2 & 3)</li>
-              <li><strong>Debouncing:</strong> Not needed for optical encoders</li>
-              <li><strong>Speed Limits:</strong> Can handle up to 10,000 RPM reliably</li>
-              <li><strong>Resolution vs Speed:</strong> Higher resolution = better precision</li>
-              <li><strong>Data Filtering:</strong> Use moving average for velocity smoothing</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    );
+    return <RotaryEncoder />;
   };
-
+          
   const renderHardwareDesignContent = () => {
     return (
       <div className="study-sidebar">
@@ -1352,6 +1453,189 @@ Where: m=0.1kg, g=9.81m/s², l=0.3m, I=0.009kg⋅m²`}
     );
   };
 
+  const renderSimulationComparisonContent = () => {
+    return (
+      <div className="study-sidebar">
+        <div className="section">
+          <h3>🔬 Simulation vs Hardware Comparison</h3>
+          <p>
+            This module enables real-time comparison between a simulated DC motor control system 
+            and your actual hardware setup. You can observe how theoretical models compare to 
+            real-world performance and understand the effects of various control parameters.
+          </p>
+          
+          <div style={{ 
+            background: '#e3f2fd', 
+            padding: '1rem', 
+            borderRadius: '8px', 
+            margin: '1rem 0',
+            borderLeft: '4px solid #2196F3'
+          }}>
+            <h4>🎯 Educational Objectives</h4>
+            <ul>
+              <li><strong>Model Validation:</strong> Compare theoretical vs actual performance</li>
+              <li><strong>Control Tuning:</strong> Understand PID parameter effects</li>
+              <li><strong>System Identification:</strong> Characterize real motor dynamics</li>
+              <li><strong>Performance Analysis:</strong> Evaluate settling time, overshoot, steady-state error</li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="section">
+          <h3>⚙️ System Components</h3>
+          <div style={{ marginBottom: '2rem' }}>
+            <h4 style={{ color: '#1976d2', marginBottom: '1rem' }}>
+              🔧 Hardware Setup (Arduino + L298N + DC Motor + Encoder)
+            </h4>
+            <SystemDiagram 
+              referenceSpeed={referenceSpeed}
+              simulatedSpeed={simulatedSpeed}
+              actualSpeed={actualSpeed}
+              simulationParams={simulationParams}
+              comparisonActive={comparisonActive}
+              diagramType="hardware"
+            />
+          </div>
+          
+          <div style={{ marginTop: '2rem' }}>
+            <h4 style={{ color: '#9c27b0', marginBottom: '1rem' }}>
+              🖥️ Simulation Model (Mathematical)
+            </h4>
+            <SystemDiagram 
+              referenceSpeed={referenceSpeed}
+              simulatedSpeed={simulatedSpeed}
+              actualSpeed={actualSpeed}
+              simulationParams={simulationParams}
+              comparisonActive={comparisonActive}
+              diagramType="simulation"
+            />
+          </div>
+        </div>
+
+        <div className="section">
+          <h3>📐 Mathematical Models</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
+            <div style={{ background: '#f3e5f5', padding: '1rem', borderRadius: '8px' }}>
+              <h4>🔄 DC Motor Transfer Function</h4>
+              <p>First-order approximation:</p>
+              <div style={{ fontFamily: 'monospace', background: '#fff', padding: '0.5rem', borderRadius: '4px' }}>
+                G(s) = K / (τs + 1)
+              </div>
+              <p>Where: K = steady-state gain, τ = time constant</p>
+            </div>
+            <div style={{ background: '#e8f5e8', padding: '1rem', borderRadius: '8px' }}>
+              <h4>📊 PID Controller</h4>
+              <p>Continuous-time PID:</p>
+              <div style={{ fontFamily: 'monospace', background: '#fff', padding: '0.5rem', borderRadius: '4px' }}>
+                u(t) = Kp⋅e(t) + Ki⋅∫e(t)dt + Kd⋅de(t)/dt
+              </div>
+              <p>Where: e(t) = reference - actual speed</p>
+            </div>
+            <div style={{ background: '#fff3e0', padding: '1rem', borderRadius: '8px' }}>
+              <h4>⚡ Discrete Implementation</h4>
+              <p>For digital control (Arduino):</p>
+              <div style={{ fontFamily: 'monospace', background: '#fff', padding: '0.5rem', borderRadius: '4px' }}>
+                u[k] = Kp⋅e[k] + Ki⋅Σe[k]⋅Δt + Kd⋅(e[k]-e[k-1])/Δt
+              </div>
+              <p>Sample time: Δt = 0.05s (20Hz)</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="section">
+          <h3>📋 Complete Arduino Code</h3>
+          <p>Upload this advanced closed-loop control sketch:</p>
+          <SyntaxHighlighter 
+            language="cpp" 
+            style={vscDarkPlus}
+            customStyle={{
+              fontSize: '0.85rem',
+              lineHeight: '1.4',
+              borderRadius: '8px'
+            }}
+          >
+            {closedLoopArduinoCode}
+          </SyntaxHighlighter>
+        </div>
+
+        <div className="section">
+          <h3>🎛️ Control Parameters</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+            <div style={{ background: '#e3f2fd', padding: '1rem', borderRadius: '8px' }}>
+              <h4>Kp (Proportional)</h4>
+              <ul>
+                <li>Controls response speed</li>
+                <li>Higher Kp → faster response</li>
+                <li>Too high → overshoot</li>
+                <li>Typical range: 0.1 - 5.0</li>
+              </ul>
+            </div>
+            <div style={{ background: '#f3e5f5', padding: '1rem', borderRadius: '8px' }}>
+              <h4>Ki (Integral)</h4>
+              <ul>
+                <li>Eliminates steady-state error</li>
+                <li>Higher Ki → faster error elimination</li>
+                <li>Too high → oscillation</li>
+                <li>Typical range: 0.01 - 1.0</li>
+              </ul>
+            </div>
+            <div style={{ background: '#e8f5e8', padding: '1rem', borderRadius: '8px' }}>
+              <h4>Kd (Derivative)</h4>
+              <ul>
+                <li>Reduces overshoot</li>
+                <li>Predicts future error</li>
+                <li>Too high → noise amplification</li>
+                <li>Typical range: 0.001 - 0.1</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div className="section">
+          <h3>📈 Performance Metrics</h3>
+          <div style={{ 
+            background: '#fff3cd', 
+            padding: '1rem', 
+            borderRadius: '8px', 
+            margin: '1rem 0',
+            borderLeft: '4px solid #ffc107'
+          }}>
+            <h4>🎯 Key Performance Indicators</h4>
+            <ul>
+              <li><strong>Rise Time:</strong> Time to reach 90% of target value</li>
+              <li><strong>Settling Time:</strong> Time to stay within ±2% of target</li>
+              <li><strong>Overshoot:</strong> Maximum deviation above target (as %)</li>
+              <li><strong>Steady-State Error:</strong> Final difference from target</li>
+              <li><strong>Root Mean Square Error:</strong> Overall tracking performance</li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="section">
+          <h3>🔍 Troubleshooting Guide</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.5rem' }}>
+            <div style={{ background: '#ffebee', padding: '1rem', borderRadius: '8px' }}>
+              <h4>❌ System Oscillates</h4>
+              <p><strong>Solution:</strong> Reduce Kp and Kd, slightly increase Ki</p>
+            </div>
+            <div style={{ background: '#e8f5e8', padding: '1rem', borderRadius: '8px' }}>
+              <h4>🐌 Slow Response</h4>
+              <p><strong>Solution:</strong> Increase Kp, check for mechanical friction</p>
+            </div>
+            <div style={{ background: '#fff3e0', padding: '1rem', borderRadius: '8px' }}>
+              <h4>📊 Steady-State Error</h4>
+              <p><strong>Solution:</strong> Increase Ki, check encoder calibration</p>
+            </div>
+            <div style={{ background: '#e3f2fd', padding: '1rem', borderRadius: '8px' }}>
+              <h4>📈 Large Overshoot</h4>
+              <p><strong>Solution:</strong> Reduce Kp, increase Kd</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderContent = () => {
     const subModule = subModules[activeSubModule];
     
@@ -1364,6 +1648,8 @@ Where: m=0.1kg, g=9.81m/s², l=0.3m, I=0.009kg⋅m²`}
         return renderStepperMotorContent();
       case 'encoders':
         return renderEncodersContent();
+      case 'simulation-comparison':
+        return renderSimulationComparisonContent();
       case 'hardware-design':
         return renderHardwareDesignContent();
       default:
@@ -1374,8 +1660,8 @@ Where: m=0.1kg, g=9.81m/s², l=0.3m, I=0.009kg⋅m²`}
   const renderControls = () => {
     const subModule = subModules[activeSubModule];
     
-    // Show interactive controls for DC motor, stepper motor, and encoder modules
-    if (!['dc-motor', 'stepper-motor', 'encoders'].includes(subModule.id)) {
+    // Show interactive controls for DC motor, stepper motor, encoder modules, and simulation comparison
+    if (!['dc-motor', 'stepper-motor', 'encoders', 'simulation-comparison'].includes(subModule.id)) {
       return (
         <div className="study-content">
           <div className="section">
@@ -2025,6 +2311,244 @@ Where: m=0.1kg, g=9.81m/s², l=0.3m, I=0.009kg⋅m²`}
               <li>Rotate encoder manually to test functionality</li>
               <li>Verify direction detection and pulse counting</li>
               <li>Test reset and calibration functions</li>
+            </ol>
+          </div>
+        </div>
+      );
+    }
+
+    // Simulation Comparison Controls
+    if (subModule.id === 'simulation-comparison') {
+      return (
+        <div className="study-content">
+          {renderConnectionPanel()}
+
+          <div className="section">
+            <h3>🔬 Real-time System Comparison</h3>
+            <div className="control-section">
+              <div style={{
+                background: 'linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%)',
+                padding: '1.5rem',
+                borderRadius: '12px',
+                marginBottom: '1.5rem',
+                border: '2px solid #2196F3',
+                boxShadow: '0 4px 8px rgba(33, 150, 243, 0.1)'
+              }}>
+                <h4 style={{ margin: '0 0 1rem 0', color: '#1976d2', display: 'flex', alignItems: 'center' }}>
+                  <span style={{ marginRight: '8px', fontSize: '1.2em' }}>⚖️</span>
+                  Simulation vs Hardware - Live Status
+                </h4>
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+                  gap: '1rem',
+                  fontSize: '0.95rem' 
+                }}>
+                  <div style={{ 
+                    background: 'rgba(255,255,255,0.7)', 
+                    padding: '0.75rem', 
+                    borderRadius: '8px',
+                    border: '1px solid rgba(33, 150, 243, 0.3)'
+                  }}>
+                    <div style={{ color: '#1976d2', fontWeight: 'bold', marginBottom: '0.25rem' }}>
+                      🎯 Reference Speed
+                    </div>
+                    <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#d32f2f' }}>
+                      {referenceSpeed} RPM
+                    </div>
+                  </div>
+                  <div style={{ 
+                    background: 'rgba(255,255,255,0.7)', 
+                    padding: '0.75rem', 
+                    borderRadius: '8px',
+                    border: '1px solid rgba(33, 150, 243, 0.3)'
+                  }}>
+                    <div style={{ color: '#1976d2', fontWeight: 'bold', marginBottom: '0.25rem' }}>
+                      🖥️ Simulated Speed
+                    </div>
+                    <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#9c27b0' }}>
+                      {simulatedSpeed.toFixed(1)} RPM
+                    </div>
+                  </div>
+                  <div style={{ 
+                    background: 'rgba(255,255,255,0.7)', 
+                    padding: '0.75rem', 
+                    borderRadius: '8px',
+                    border: '1px solid rgba(33, 150, 243, 0.3)'
+                  }}>
+                    <div style={{ color: '#1976d2', fontWeight: 'bold', marginBottom: '0.25rem' }}>
+                      ⚙️ Actual Speed
+                    </div>
+                    <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#2e7d32' }}>
+                      {actualSpeed.toFixed(1)} RPM
+                    </div>
+                  </div>
+                  <div style={{ 
+                    background: 'rgba(255,255,255,0.7)', 
+                    padding: '0.75rem', 
+                    borderRadius: '8px',
+                    border: '1px solid rgba(33, 150, 243, 0.3)'
+                  }}>
+                    <div style={{ color: '#1976d2', fontWeight: 'bold', marginBottom: '0.25rem' }}>
+                      📊 Status
+                    </div>
+                    <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: comparisonActive ? '#f57c00' : '#2e7d32' }}>
+                      {comparisonActive ? 'Running' : 'Stopped'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="control-group">
+                <label style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#333' }}>
+                  Reference Speed (RPM: 0-600)
+                </label>
+                <div className="slider-container">
+                  <input
+                    type="range"
+                    min="0"
+                    max="600"
+                    value={referenceSpeed}
+                    onChange={(e) => handleReferenceSpeedChange(parseInt(e.target.value))}
+                    className="slider"
+                    disabled={!isConnected}
+                    style={{ width: '100%', height: '8px' }}
+                  />
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    marginTop: '0.75rem',
+                    padding: '0.5rem',
+                    background: '#f5f5f5',
+                    borderRadius: '8px',
+                    border: '1px solid #ddd'
+                  }}>
+                    <div style={{ fontWeight: 'bold', color: '#1976d2', fontSize: '1.2rem' }}>
+                      Target: <span style={{ color: '#d32f2f' }}>{referenceSpeed} RPM</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="control-group">
+                <label>System Control</label>
+                <div className="direction-controls">
+                  <button
+                    className={`btn btn-small ${comparisonActive ? 'btn-warning' : 'btn-success'}`}
+                    onClick={comparisonActive ? stopSimulationComparison : startSimulationComparison}
+                    disabled={!isConnected}
+                  >
+                    {comparisonActive ? '⏹️ Stop Comparison' : '▶️ Start Comparison'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="control-group">
+                <label>PID Parameters (Simulation & Hardware)</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginTop: '0.5rem' }}>
+                  <div>
+                    <label style={{ fontSize: '0.9rem', color: '#666' }}>Kp (Proportional)</label>
+                    <input
+                      type="number"
+                      value={simulationParams.kp}
+                      onChange={(e) => handlePIDParameterChange('kp', parseFloat(e.target.value) || 0)}
+                      step="0.1"
+                      min="0"
+                      max="10"
+                      style={{
+                        width: '100%',
+                        padding: '0.5rem',
+                        borderRadius: '4px',
+                        border: '1px solid #ddd'
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.9rem', color: '#666' }}>Ki (Integral)</label>
+                    <input
+                      type="number"
+                      value={simulationParams.ki}
+                      onChange={(e) => handlePIDParameterChange('ki', parseFloat(e.target.value) || 0)}
+                      step="0.01"
+                      min="0"
+                      max="1"
+                      style={{
+                        width: '100%',
+                        padding: '0.5rem',
+                        borderRadius: '4px',
+                        border: '1px solid #ddd'
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '0.9rem', color: '#666' }}>Kd (Derivative)</label>
+                    <input
+                      type="number"
+                      value={simulationParams.kd}
+                      onChange={(e) => handlePIDParameterChange('kd', parseFloat(e.target.value) || 0)}
+                      step="0.01"
+                      min="0"
+                      max="1"
+                      style={{
+                        width: '100%',
+                        padding: '0.5rem',
+                        borderRadius: '4px',
+                        border: '1px solid #ddd'
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="section">
+            <h3>📊 Real-time Comparison Plot</h3>
+            <RealTimePlot 
+              plotData={plotData}
+              referenceSpeed={referenceSpeed}
+              simulatedSpeed={simulatedSpeed}
+              actualSpeed={actualSpeed}
+              comparisonActive={comparisonActive}
+            />
+          </div>
+
+          <div className="section">
+            <h3>📟 Serial Monitor</h3>
+            <div style={{
+              background: '#1e1e1e',
+              color: '#00ff00',
+              padding: '1rem',
+              borderRadius: '8px',
+              fontFamily: 'monospace',
+              fontSize: '0.9rem',
+              height: '200px',
+              overflowY: 'auto',
+              border: '1px solid #333'
+            }}>
+              {serialOutput.length === 0 ? (
+                <div style={{ color: '#666' }}>Connect to Arduino to see serial output...</div>
+              ) : (
+                serialOutput.map((output, index) => (
+                  <div key={index}>{output}</div>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="section">
+            <h3>✅ Comparison Setup Checklist</h3>
+            <ol>
+              <li>Upload the ClosedLoopControl sketch to Arduino Mega</li>
+              <li>Wire DC Motor: <strong>IN1→Pin 8, IN2→Pin 7, ENA→Pin 9</strong></li>
+              <li>Wire Encoder: <strong>Phase A→Pin 2, Phase B→Pin 3</strong></li>
+              <li>Connect 12V power supply and encoder power (5V)</li>
+              <li>Click "Connect Arduino" above</li>
+              <li>Set desired reference speed (0-600 RPM)</li>
+              <li>Adjust PID parameters as needed</li>
+              <li>Click "Start Comparison" to begin real-time testing</li>
+              <li>Observe simulation vs hardware performance</li>
             </ol>
           </div>
         </div>

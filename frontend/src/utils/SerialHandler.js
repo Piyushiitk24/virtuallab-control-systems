@@ -233,6 +233,28 @@ class SerialHandler {
   async encoderCalibrate() {
     await this.sendCommand('ENCODER_CALIBRATE');
   }
+
+  // Closed-Loop Control Commands
+  async startClosedLoop() {
+    await this.sendCommand('START_CLOSED_LOOP');
+  }
+
+  async stopClosedLoop() {
+    await this.sendCommand('STOP_CLOSED_LOOP');
+  }
+
+  async setTargetSpeed(speed) {
+    const clampedSpeed = Math.max(-600, Math.min(600, speed));
+    await this.sendCommand(`SET_TARGET_${clampedSpeed}`);
+  }
+
+  async setPIDParams(kp, ki, kd) {
+    await this.sendCommand(`SET_PID_${kp}_${ki}_${kd}`);
+  }
+
+  async resetEncoder() {
+    await this.sendCommand('RESET_ENCODER');
+  }
 }
 
 // Create a singleton instance
